@@ -4,7 +4,7 @@ import pandas as pd
 import os
 
 # Configurazione della pagina
-st.set_page_config(page_title="Corporate OSINT Dashboard", page_icon="🕵️‍♂️", layout="wide")
+st.set_page_config(page_title="Corporate OSINT Dashboard v2", page_icon="🕵️‍♂️", layout="wide")
 st.title("🕵️‍♂️ OSINT Dashboard Aziendale")
 
 # --- FUNZIONE: ANALISI PREDITTIVA CON A.I. ---
@@ -64,25 +64,31 @@ def analizza_con_ai(tipo, dati_testo):
 # Creiamo due "Tab" (schede) per dividere i due strumenti
 tab1, tab2 = st.tabs(["✈️ Radar Airbus (Live)", "🏎️ Brevetti Ferrari"])
 
-# --- TAB 1: AIRBUS ---
+# --- TAB 1: AIRBUS (usa ADS-B Exchange - nessuna chiave richiesta) ---
 with tab1:
     st.header("Intercettazione Voli (Tolosa)")
+    st.caption("Fonte dati: ADS-B Exchange (api.adsb.lol) — aggiornamento in tempo reale, nessuna chiave API richiesta")
+
     if st.button("📡 Scansiona Spazio Aereo"):
         with st.spinner("Ricerca in corso..."):
-            lamin, lamax, lomin, lomax = 43.5, 43.7, 1.3, 1.5
-            url = f"https://opensky-network.org/api/states/all?lamin={lamin}&lomin={lomin}&lamax={lamax}&lomax={lomax}"
+            # ADS-B Exchange: cerca aerei entro 50km da Tolosa (lat 43.6, lon 1.4)
+            url = "https://api.adsb.lol/v2/lat/43.6/lon/1.4/dist/50"
             try:
-                opensky_user = os.environ.get("OPENSKY_USER", "")
-                opensky_pw = os.environ.get("OPENSKY_PW", "")
-                auth = (opensky_user, opensky_pw) if opensky_user else None
-                headers_opensky = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "application/json"
-                }
-                res = requests.get(url, auth=auth, headers=headers_opensky, timeout=30).json()
-                if res['states']:
-                    st.success(f"Trovati {len(res['states'])} aerei!")
-                    voli = [{'ICAO': a[0], 'Volo': str(a[1]).strip(), 'Nazione': a[2], 'Altitudine': a[7]} for a in res['states']]
+                res = requests.get(url, timeout=30).json()
+                aerei = res.get("ac", [])
+                if aerei:
+                    st.success(f"Trovati {len(aerei)} aerei nel raggio di 50km da Tolosa!")
+                    voli = []
+                    for a in aerei:
+                        voli.append({
+                            'ICAO': a.get('hex', '').upper(),
+                            'Volo': str(a.get('flight', '')).strip(),
+                            'Tipo Aereo': a.get('t', 'N/D'),
+                            'Matricola': a.get('r', 'N/D'),
+                            'Altitudine (ft)': a.get('alt_baro', 'N/D'),
+                            'Velocità (kt)': a.get('gs', 'N/D'),
+                            'Nazione': 'France' if str(a.get('hex', '')).startswith('3') else 'Internazionale'
+                        })
                     df_voli = pd.DataFrame(voli)
                     st.dataframe(df_voli, use_container_width=True)
 
@@ -93,7 +99,7 @@ with tab1:
                     st.warning("Nessun aereo rilevato in questo momento.")
                     st.session_state['airbus_trovati'] = False
             except Exception as e:
-                st.error("Errore di connessione al radar.")
+                st.error(f"Errore di connessione al radar: {str(e)}")
                 st.session_state['airbus_trovati'] = False
 
     # Pulsante A.I. Predittiva (appare solo dopo la scansione)
