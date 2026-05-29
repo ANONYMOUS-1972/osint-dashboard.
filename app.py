@@ -2,10 +2,47 @@ import streamlit as st
 import requests
 import pandas as pd
 import os
+import base64
+from pathlib import Path
 
 # Configurazione della pagina
-st.set_page_config(page_title="Corporate OSINT Dashboard v2", page_icon="🕵️‍♂️", layout="wide")
-st.title("🕵️‍♂️ OSINT Dashboard Aziendale")
+st.set_page_config(
+    page_title="Gotham Project: Intelligence & Surveillance",
+    page_icon="🦇",
+    layout="wide"
+)
+
+# --- HEADER CON LOGO GOTHAM ---
+def get_logo_base64():
+    """Carica il logo come base64 per visualizzarlo inline."""
+    logo_path = Path(__file__).parent / "gotham_logo.png"
+    if logo_path.exists():
+        with open(logo_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+logo_b64 = get_logo_base64()
+if logo_b64:
+    st.markdown(
+        f"""
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 10px;">
+            <img src="data:image/png;base64,{logo_b64}" style="height: 80px; width: auto;">
+            <div>
+                <h1 style="margin: 0; padding: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: 2px;">
+                    Gotham Project: Intelligence & Surveillance
+                </h1>
+                <p style="margin: 0; color: #888; font-size: 0.9rem; letter-spacing: 1px;">
+                    A.I. Predictive Intelligence Platform
+                </p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.title("🦇 Gotham Project: Intelligence & Surveillance")
+
+st.divider()
 
 # --- FUNZIONE: ANALISI PREDITTIVA CON A.I. ---
 def analizza_con_ai(tipo, dati_testo):
@@ -64,14 +101,13 @@ def analizza_con_ai(tipo, dati_testo):
 # Creiamo due "Tab" (schede) per dividere i due strumenti
 tab1, tab2 = st.tabs(["✈️ Radar Airbus (Live)", "🏎️ Brevetti Ferrari"])
 
-# --- TAB 1: AIRBUS (usa ADS-B Exchange - nessuna chiave richiesta) ---
+# --- TAB 1: AIRBUS (ADS-B Exchange - nessuna chiave richiesta) ---
 with tab1:
     st.header("Intercettazione Voli (Tolosa)")
-    st.caption("Fonte dati: ADS-B Exchange (api.adsb.lol) — aggiornamento in tempo reale, nessuna chiave API richiesta")
+    st.caption("Fonte: ADS-B Exchange — dati in tempo reale, nessuna chiave API richiesta")
 
     if st.button("📡 Scansiona Spazio Aereo"):
         with st.spinner("Ricerca in corso..."):
-            # ADS-B Exchange: cerca aerei entro 50km da Tolosa (lat 43.6, lon 1.4)
             url = "https://api.adsb.lol/v2/lat/43.6/lon/1.4/dist/50"
             try:
                 res = requests.get(url, timeout=30).json()
@@ -80,19 +116,28 @@ with tab1:
                     st.success(f"Trovati {len(aerei)} aerei nel raggio di 50km da Tolosa!")
                     voli = []
                     for a in aerei:
+                        # Gestione valori misti (es. 'ground' invece di numero)
+                        alt_raw = a.get('alt_baro', None)
+                        try:
+                            alt_val = int(alt_raw) if alt_raw not in (None, 'ground', '') else 0
+                        except (ValueError, TypeError):
+                            alt_val = 0
+                        gs_raw = a.get('gs', None)
+                        try:
+                            gs_val = round(float(gs_raw), 1) if gs_raw not in (None, '') else 0.0
+                        except (ValueError, TypeError):
+                            gs_val = 0.0
                         voli.append({
                             'ICAO': a.get('hex', '').upper(),
                             'Volo': str(a.get('flight', '')).strip(),
-                            'Tipo Aereo': a.get('t', 'N/D'),
-                            'Matricola': a.get('r', 'N/D'),
-                            'Altitudine (ft)': a.get('alt_baro', 'N/D'),
-                            'Velocità (kt)': a.get('gs', 'N/D'),
+                            'Tipo Aereo': str(a.get('t', 'N/D')),
+                            'Matricola': str(a.get('r', 'N/D')),
+                            'Altitudine (ft)': alt_val,
+                            'Velocità (kt)': gs_val,
                             'Nazione': 'France' if str(a.get('hex', '')).startswith('3') else 'Internazionale'
                         })
                     df_voli = pd.DataFrame(voli)
                     st.dataframe(df_voli, use_container_width=True)
-
-                    # Salviamo i dati in session_state per l'analisi A.I.
                     st.session_state['dati_airbus'] = df_voli.to_string(index=False)
                     st.session_state['airbus_trovati'] = True
                 else:
@@ -102,7 +147,6 @@ with tab1:
                 st.error(f"Errore di connessione al radar: {str(e)}")
                 st.session_state['airbus_trovati'] = False
 
-    # Pulsante A.I. Predittiva (appare solo dopo la scansione)
     if st.session_state.get('airbus_trovati'):
         st.divider()
         if st.button("🤖 Analizza con A.I. Predittiva", key="ai_airbus", type="primary"):
@@ -127,15 +171,12 @@ with tab2:
                     titolo = item.get('title')
                     st.info(f"**[{anno}]** {titolo}")
                     testo_brevetti += f"[{anno}] {titolo}\n"
-
-                # Salviamo i dati in session_state per l'analisi A.I.
                 st.session_state['dati_ferrari'] = testo_brevetti
                 st.session_state['ferrari_trovati'] = True
             except Exception as e:
                 st.error("Errore di connessione al database.")
                 st.session_state['ferrari_trovati'] = False
 
-    # Pulsante A.I. Predittiva (appare solo dopo la ricerca brevetti)
     if st.session_state.get('ferrari_trovati'):
         st.divider()
         if st.button("🤖 Analizza con A.I. Predittiva", key="ai_ferrari", type="primary"):
