@@ -10,9 +10,9 @@ st.title("🕵️‍♂️ OSINT Dashboard Aziendale")
 # --- FUNZIONE: ANALISI PREDITTIVA CON A.I. ---
 def analizza_con_ai(tipo, dati_testo):
     """Invia i dati raccolti a DeepSeek e restituisce un briefing predittivo."""
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key:
-        return "⚠️ Chiave API non configurata. Aggiungi OPENAI_API_KEY nei Secrets di Streamlit Cloud."
+        return "⚠️ Chiave API non configurata. Aggiungi DEEPSEEK_API_KEY nei Secrets di Streamlit Cloud."
 
     if tipo == "airbus":
         prompt_sistema = (
@@ -40,7 +40,7 @@ def analizza_con_ai(tipo, dati_testo):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "gpt-4.1-mini",
+        "model": "deepseek-chat",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": prompt_utente}
@@ -50,7 +50,7 @@ def analizza_con_ai(tipo, dati_testo):
     }
     try:
         risposta = requests.post(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.deepseek.com/v1/chat/completions",
             headers=headers,
             json=payload,
             timeout=30
