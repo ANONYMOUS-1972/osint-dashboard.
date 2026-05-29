@@ -72,7 +72,10 @@ with tab1:
             lamin, lamax, lomin, lomax = 43.5, 43.7, 1.3, 1.5
             url = f"https://opensky-network.org/api/states/all?lamin={lamin}&lomin={lomin}&lamax={lamax}&lomax={lomax}"
             try:
-                res = requests.get(url, timeout=10).json()
+                opensky_user = os.environ.get("OPENSKY_USER", "")
+                opensky_pw = os.environ.get("OPENSKY_PW", "")
+                auth = (opensky_user, opensky_pw) if opensky_user else None
+                res = requests.get(url, auth=auth, timeout=10).json()
                 if res['states']:
                     st.success(f"Trovati {len(res['states'])} aerei!")
                     voli = [{'ICAO': a[0], 'Volo': str(a[1]).strip(), 'Nazione': a[2], 'Altitudine': a[7]} for a in res['states']]
